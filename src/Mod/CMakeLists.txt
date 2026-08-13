@@ -129,5 +129,5 @@ if(BUILD_TUX)
 endif(BUILD_TUX)
 
 if(BUILD_WEB)
-    add_subdirectory(Web)
+    #add_subdirectory(Web)
 endif(BUILD_WEB)
