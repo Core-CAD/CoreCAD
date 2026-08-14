@@ -13,33 +13,40 @@ jobs:
     - name: 1. Baixar o Código do Repositório
       uses: actions/checkout@v4
 
-    - name: 2. Configurar Python e Ferramentas de Build
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    - name: 3. Preparar Estrutura do Core CAD
+    - name: 2. Baixar o Motor 3D do CAD (Base Executável)
       shell: bash
       run: |
-        echo "Organizando arquivos de módulo e configurações..."
-        mkdir -p build/CoreCAD/Mod
-        mkdir -p build/CoreCAD/config
+        echo "Baixando binaries do motor CAD..."
+        # Download da versão base estável do FreeCAD Portable
+        curl -L -o freecad_base.7z "https://github.com/FreeCAD/FreeCAD/releases/download/0.21.2/FreeCAD-0.21.2-SHA256-Win-x128-Py3.10-MinGW.7z"
         
-        # Copia os módulos se existirem, sem travar o build se estiver vazio
+        echo "Extraindo arquivos do motor..."
+        7z x freecad_base.7z -obuild/CoreCAD > /dev/null
+
+    - name: 3. Aplicar Branding e Configurações do Core CAD
+      shell: bash
+      run: |
+        echo "Injetando configurações do Core CAD no pacote..."
+        
+        # Cria pasta do módulo e injeta as regras
+        mkdir -p build/CoreCAD/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
-          cp -r Mod/CoreCAD build/CoreCAD/Mod/
+          cp -r Mod/CoreCAD/* build/CoreCAD/Mod/CoreCAD/
         fi
 
+        # Cria pasta de configurações do usuário
+        mkdir -p build/CoreCAD/config
         if [ -d "config" ]; then
           cp -r config/* build/CoreCAD/config/ 2>/dev/null || true
         fi
 
+        # Adiciona o inicializador do Core CAD
         if [ -f "Customizar_UI.bat" ]; then
-          cp Customizar_UI.bat build/CoreCAD/
+          cp Customizar_UI.bat build/CoreCAD/Iniciar_CoreCAD.bat
         fi
 
-    - name: 4. Empacotar Artefatos da Aplicação
+    - name: 4. Empacotar Distribuição Final do Core CAD
       uses: actions/upload-artifact@v4
       with:
-        name: CoreCAD-Windows-Portable
+        name: CoreCAD-Windows-v1.0-Portable
         path: build/CoreCAD
