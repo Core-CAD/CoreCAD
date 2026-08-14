@@ -15,13 +15,15 @@ jobs:
 
     - name: 2. Baixar o Motor 3D do CAD (Base Executável)
       shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Baixando binaries do motor CAD..."
-        # Download da versão base estável do FreeCAD Portable
-        curl -L -o freecad_base.7z "https://github.com/FreeCAD/FreeCAD/releases/download/0.21.2/FreeCAD-0.21.2-SHA256-Win-x128-Py3.10-MinGW.7z"
+        echo "Baixando binaries do motor CAD via GitHub CLI..."
+        # Utiliza a CLI oficial do GitHub para buscar o arquivo .7z correto sem erros de URL
+        gh release download 0.21.2 --repo FreeCAD/FreeCAD --pattern "*.7z"
         
         echo "Extraindo arquivos do motor..."
-        7z x freecad_base.7z -obuild/CoreCAD > /dev/null
+        7z x *.7z -obuild/CoreCAD > /dev/null
 
     - name: 3. Aplicar Branding e Configurações do Core CAD
       shell: bash
@@ -45,7 +47,7 @@ jobs:
           cp Customizar_UI.bat build/CoreCAD/Iniciar_CoreCAD.bat
         fi
 
-    - name: 4. Empacotar Distribuição Final do Core CAD
+    - name: 4. Empacotar Artefatos da Aplicação
       uses: actions/upload-artifact@v4
       with:
         name: CoreCAD-Windows-v1.0-Portable
