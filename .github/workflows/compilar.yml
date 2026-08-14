@@ -18,38 +18,53 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Baixando a última versão do motor CAD via GitHub CLI..."
-        
-        # Omitindo a versão, o comando baixa automaticamente o "Latest Release"
+        echo "Baixando a última versão do motor CAD..."
         gh release download --repo FreeCAD/FreeCAD --pattern "*Win*.7z"
-        
-        echo "Extraindo arquivos do motor..."
         7z x *.7z -obuild/CoreCAD > /dev/null
 
-    - name: 3. Aplicar Branding e Configurações do Core CAD
+    - name: 3. Aplicar Black-Branding e Limpar Rastros
       shell: bash
       run: |
-        echo "Injetando configurações do Core CAD no pacote..."
+        echo "Renomeando os arquivos executáveis principais..."
+        mv build/CoreCAD/bin/FreeCAD.exe build/CoreCAD/bin/CoreCAD.exe 2>/dev/null || true
+        mv build/CoreCAD/bin/FreeCADCmd.exe build/CoreCAD/bin/CoreCADCmd.exe 2>/dev/null || true
+
+        echo "Apagando a bancada Start (que mostra notícias e a logo grande do FreeCAD)..."
+        rm -rf build/CoreCAD/Mod/Start
+
+        echo "Gerando uma imagem PNG 100% preta via código para substituir logos..."
+        # Isso cria uma imagem preta sem precisar baixar nada da internet
+        echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC" | base64 -d > black.png
         
-        # Cria pasta do módulo e injeta as regras
+        echo "Substituindo telas de carregamento (Splash)..."
+        cp black.png build/CoreCAD/data/Gui/Images/splash_background.png 2>/dev/null || true
+        cp black.png build/CoreCAD/data/Gui/Images/freecad-splash.png 2>/dev/null || true
+        
+        echo "Substituindo ícones internos do sistema..."
+        cp black.png build/CoreCAD/data/Gui/Images/freecad.svg 2>/dev/null || true
+        cp black.png build/CoreCAD/data/Gui/Images/freecad.png 2>/dev/null || true
+        cp black.png build/CoreCAD/data/Gui/Images/freecad-icon-64.png 2>/dev/null || true
+
+    - name: 4. Injetar Arquivos do Core CAD
+      shell: bash
+      run: |
+        echo "Organizando pastas do projeto..."
         mkdir -p build/CoreCAD/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
           cp -r Mod/CoreCAD/* build/CoreCAD/Mod/CoreCAD/
         fi
 
-        # Cria pasta de configurações do usuário
         mkdir -p build/CoreCAD/config
         if [ -d "config" ]; then
           cp -r config/* build/CoreCAD/config/ 2>/dev/null || true
         fi
 
-        # Adiciona o inicializador do Core CAD
         if [ -f "Customizar_UI.bat" ]; then
           cp Customizar_UI.bat build/CoreCAD/Iniciar_CoreCAD.bat
         fi
 
-    - name: 4. Empacotar Artefatos da Aplicação
+    - name: 5. Empacotar Distribuição
       uses: actions/upload-artifact@v4
       with:
-        name: CoreCAD-Windows-Latest-Portable
+        name: CoreCAD-Windows-Latest-Branded
         path: build/CoreCAD
