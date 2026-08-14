@@ -1,0 +1,35 @@
+name: Compilar Core CAD Nativo
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: 1. Baixar o Código do Repositório
+      uses: actions/checkout@v4
+
+    - name: 2. Configurar Python e Ferramentas de Build
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: 3. Preparar Estrutura do Core CAD
+      run: |
+        echo "Organizando arquivos de módulo e configurações..."
+        mkdir -p build/CoreCAD
+        # Copia o módulo customizado CoreCAD para a estrutura final
+        cp -r Mod/CoreCAD build/CoreCAD/Mod/
+        cp -r config build/CoreCAD/
+
+    - name: 4. Empacotar Artefatos da Aplicação
+      uses: actions/upload-artifact@v4
+      with:
+        name: CoreCAD-Windows-Portable
+        path: |
+          build/CoreCAD
+          Customizar_UI.bat

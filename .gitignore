@@ -74,3 +74,15 @@ tsupdate_stdout.log
 # pixi environments
 *.egg-info
 .pixi
+# Ignora os arquivos pesados do FreeCAD Portable
+/bin/
+/doc/
+/data/
+/lib/
+/share/
+/translations/
+*.dll
+*.exe
+
+# Mantém o rastreio do seu módulo customizado
+!/Mod/CoreCAD/
