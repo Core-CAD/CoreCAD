@@ -23,21 +23,19 @@ jobs:
       shell: bash
       run: |
         echo "Substituindo ocorrências de texto no código-fonte..."
-        # Substitui referências de título de janela e menus no C++
         find src-freecad/src/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.ui" \) -exec sed -i 's/FreeCAD/Core CAD/g' {} +
 
         echo "Gerando imagem de substituição..."
         echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC" | base64 -d > black.png
 
-        echo "Substituindo recursos visuais originais (Splash e Ícones)..."
+        echo "Substituindo recursos visuais originais..."
         cp black.png src-freecad/src/Gui/Resources/icons/freecad.png 2>/dev/null || true
         cp black.png src-freecad/src/Gui/Resources/icons/freecad.svg 2>/dev/null || true
         cp black.png src-freecad/src/Gui/Resources/images/splash_background.png 2>/dev/null || true
 
     - name: 4. Configurar Ambiente Pixi / CMake
-      uses: prefix-dev/setup-pixi@v0.8
+      uses: prefix-dev/setup-pixi@v0
       with:
-        pixi-version: v0.40.0
         project-path: src-freecad
 
     - name: 5. Compilar Código-Fonte em C++
