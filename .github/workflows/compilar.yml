@@ -40,10 +40,12 @@ jobs:
 
     - name: 6. Compile C++ source code
       shell: bash
+      env:
+        CMAKE_BUILD_PARALLEL_LEVEL: '2'
       run: |
         cd src-freecad
-        echo "Starting C++ compilation with limited parallel threads..."
-        pixi run cmake --build build --parallel 2
+        echo "Starting C++ compilation with parallel level control..."
+        pixi run build
 
     - name: 7. Inject custom modules and rename output binary
       shell: bash
