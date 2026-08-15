@@ -13,12 +13,8 @@ jobs:
     - name: 1. Checkout repository code
       uses: actions/checkout@v4
 
-    - name: 2. Free up disk space on Windows runner
-      shell: powershell
-      run: |
-        Write-Host "Cleaning up runner disk space..."
-        Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "C:\Android" -Recurse -Force -ErrorAction SilentlyContinue
+    - name: 2. Setup MSVC C++ compiler environment
+      uses: ilammy/msvc-dev-cmd@v1
 
     - name: 3. Clone official C++ source code
       shell: bash
@@ -32,19 +28,19 @@ jobs:
         manifest-path: src-freecad/pixi.toml
 
     - name: 5. Configure CMake build environment
+      working-directory: src-freecad
       shell: bash
       run: |
-        cd src-freecad
         echo "Configuring build directory with CMake..."
         pixi run configure
 
     - name: 6. Compile C++ source code
+      working-directory: src-freecad
       shell: bash
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: '2'
       run: |
-        cd src-freecad
-        echo "Starting C++ compilation with parallel level control..."
+        echo "Starting C++ compilation with Ninja and MSVC..."
         pixi run build
 
     - name: 7. Inject custom modules and rename output binary
