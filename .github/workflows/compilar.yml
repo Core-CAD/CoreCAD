@@ -13,46 +13,41 @@ jobs:
     - name: 1. Checkout repository code
       uses: actions/checkout@v4
 
-    - name: 2. Setup MSVC x64 C++ compiler environment
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
-
-    - name: 3. Free up disk space on Windows runner
+    - name: 2. Free up disk space on Windows runner
       shell: powershell
       run: |
         Write-Host "Cleaning up runner disk space..."
         Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "C:\Android" -Recurse -Force -ErrorAction SilentlyContinue
 
-    - name: 4. Clone official C++ source code
+    - name: 3. Clone official C++ source code
       shell: bash
       run: |
         echo "Cloning source code repository..."
         git clone --depth 1 https://github.com/FreeCAD/FreeCAD.git src-freecad
 
-    - name: 5. Setup Pixi environment
+    - name: 4. Setup Pixi environment
       uses: prefix-dev/setup-pixi@v0
       with:
         manifest-path: src-freecad/pixi.toml
 
-    - name: 6. Configure CMake build environment
+    - name: 5. Configure CMake build environment
       working-directory: src-freecad
-      shell: bash
+      shell: cmd
       run: |
         echo "Configuring build directory with CMake..."
         pixi run configure
 
-    - name: 7. Compile C++ source code
+    - name: 6. Compile C++ source code
       working-directory: src-freecad
-      shell: bash
+      shell: cmd
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: '2'
       run: |
-        echo "Starting C++ compilation with MSVC and Ninja..."
+        echo "Starting C++ compilation..."
         pixi run build
 
-    - name: 8. Inject custom modules and rename output binary
+    - name: 7. Inject custom modules and rename output binary
       shell: bash
       run: |
         echo "Renaming compiled executable..."
@@ -64,7 +59,7 @@ jobs:
           cp -r Mod/CoreCAD/* src-freecad/build/bin/Mod/CoreCAD/
         fi
 
-    - name: 9. Upload native build artifacts
+    - name: 8. Upload native build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: CoreCAD-Windows-Native-Build
