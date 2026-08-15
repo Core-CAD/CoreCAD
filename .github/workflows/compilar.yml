@@ -13,17 +13,21 @@ jobs:
     - name: 1. Checkout repository code
       uses: actions/checkout@v4
 
-    - name: 2. Clone official C++ source code
+    - name: 2. Setup MSVC C++ compiler environment
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: 3. Clone official C++ source code
       shell: bash
       run: |
         echo "Cloning FreeCAD source code repository..."
         git clone --depth 1 https://github.com/FreeCAD/FreeCAD.git src-freecad
 
-    - name: 3. Inject native Core CAD branding into source code
+    - name: 4. Inject native Core CAD branding safely
       shell: bash
       run: |
-        echo "Replacing text occurrences in source code..."
-        find src-freecad/src/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.ui" \) -exec sed -i 's/FreeCAD/Core CAD/g' {} +
+        echo "Updating main project name in build configurations..."
+        # Uses valid C++ identifier without spaces to prevent syntax errors
+        sed -i 's/FreeCAD/CoreCAD/g' src-freecad/CMakeLists.txt
 
         echo "Generating replacement image..."
         echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC" | base64 -d > black.png
@@ -33,30 +37,32 @@ jobs:
         cp black.png src-freecad/src/Gui/Resources/icons/freecad.svg 2>/dev/null || true
         cp black.png src-freecad/src/Gui/Resources/images/splash_background.png 2>/dev/null || true
 
-    - name: 4. Setup Pixi environment
+    - name: 5. Setup Pixi environment
       uses: prefix-dev/setup-pixi@v0
       with:
         manifest-path: src-freecad/pixi.toml
 
-    - name: 5. Compile C++ source code
+    - name: 6. Configure and compile C++ code
       shell: bash
       run: |
         cd src-freecad
+        echo "Initializing pixi dependencies..."
+        pixi run initialize || true
         echo "Configuring build with CMake..."
         pixi run configure
-        echo "Starting MSVC compilation..."
+        echo "Starting MSVC C++ build..."
         pixi run build
 
-    - name: 6. Inject custom modules
+    - name: 7. Inject custom modules
       shell: bash
       run: |
-        echo "Copying repository modules to build folder..."
+        echo "Copying repository modules to output folder..."
         mkdir -p src-freecad/build/bin/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
           cp -r Mod/CoreCAD/* src-freecad/build/bin/Mod/CoreCAD/
         fi
 
-    - name: 7. Upload native build artifacts
+    - name: 8. Upload native build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: CoreCAD-Windows-Native-Build
