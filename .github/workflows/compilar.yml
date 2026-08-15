@@ -1,4 +1,4 @@
-name: Compilar Core CAD Nativo
+name: Compilar Core CAD Nativo (C++)
 
 on:
   push:
@@ -6,51 +6,60 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
+  build-cpp-windows:
     runs-on: windows-latest
 
     steps:
-    - name: 1. Baixar Código Fonte
+    - name: 1. Baixar o Repositório do Projeto
       uses: actions/checkout@v4
 
-    - name: 2. Baixar Última Versão do Motor CAD
-      shell: bash
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        echo "Baixando o motor 3D oficial..."
-        gh release download --repo FreeCAD/FreeCAD --pattern "*Win*.7z"
-        7z x *.7z -obuild/CoreCAD > /dev/null
-
-    - name: 3. Aplicar Branding e Renomear Binários
+    - name: 2. Baixar Código-Fonte C++ Oficial
       shell: bash
       run: |
-        echo "Renomeando o executável principal..."
-        mv build/CoreCAD/bin/FreeCAD.exe build/CoreCAD/bin/CoreCAD.exe 2>/dev/null || true
-        mv build/CoreCAD/bin/FreeCADCmd.exe build/CoreCAD/bin/CoreCADCmd.exe 2>/dev/null || true
+        echo "Clonando o repositório de código-fonte..."
+        git clone --depth 1 https://github.com/FreeCAD/FreeCAD.git src-freecad
 
-        echo "Removendo a tela inicial nativa (Start module)..."
-        rm -rf build/CoreCAD/Mod/Start
+    - name: 3. Injetar Branding Nativo no Código-Fonte (Core CAD)
+      shell: bash
+      run: |
+        echo "Substituindo ocorrências de texto no código-fonte..."
+        # Substitui referências de título de janela e menus no C++
+        find src-freecad/src/ -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.ui" \) -exec sed -i 's/FreeCAD/Core CAD/g' {} +
 
-        echo "Gerando imagens pretas para substituição de logos..."
+        echo "Gerando imagem de substituição..."
         echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC" | base64 -d > black.png
-        
-        # Substitui ícones e splash screens mantendo a estrutura limpa
-        cp black.png build/CoreCAD/data/Gui/Images/splash_background.png 2>/dev/null || true
-        cp black.png build/CoreCAD/data/Gui/Images/freecad-splash.png 2>/dev/null || true
-        cp black.png build/CoreCAD/data/Gui/Images/freecad.png 2>/dev/null || true
 
-    - name: 4. Injetar Módulo Core CAD (Estrutura Isolada)
+        echo "Substituindo recursos visuais originais (Splash e Ícones)..."
+        cp black.png src-freecad/src/Gui/Resources/icons/freecad.png 2>/dev/null || true
+        cp black.png src-freecad/src/Gui/Resources/icons/freecad.svg 2>/dev/null || true
+        cp black.png src-freecad/src/Gui/Resources/images/splash_background.png 2>/dev/null || true
+
+    - name: 4. Configurar Ambiente Pixi / CMake
+      uses: prefix-dev/setup-pixi@v0.8
+      with:
+        pixi-version: v0.40.0
+        project-path: src-freecad
+
+    - name: 5. Compilar Código-Fonte em C++
       shell: bash
       run: |
-        echo "Copiando o módulo CoreCAD de forma isolada..."
-        mkdir -p build/CoreCAD/Mod/CoreCAD
+        cd src-freecad
+        echo "Configurando o build com CMake..."
+        pixi run configure
+        echo "Iniciando compilação MSVC..."
+        pixi run build
+
+    - name: 6. Injetar Módulos Customizados
+      shell: bash
+      run: |
+        echo "Copiando módulos do repositório para o build final..."
+        mkdir -p src-freecad/build/bin/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
-          cp -r Mod/CoreCAD/* build/CoreCAD/Mod/CoreCAD/
+          cp -r Mod/CoreCAD/* src-freecad/build/bin/Mod/CoreCAD/
         fi
 
-    - name: 5. Empacotar Distribuição
+    - name: 7. Empacotar Artefato Nativo (.exe + DLLs)
       uses: actions/upload-artifact@v4
       with:
-        name: CoreCAD-Windows-Nativo-v1.0
-        path: build/CoreCAD
+        name: CoreCAD-Windows-Native-Build
+        path: src-freecad/build/bin
