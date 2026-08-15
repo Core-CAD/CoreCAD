@@ -1,34 +1,20 @@
-import FreeCADGui
+import FreeCAD as App
+import FreeCADGui as Gui
+from PySide import QtCore
 
-class CoreCADWorkbench(FreeCADGui.Workbench):
-    MenuText = "Core CAD"
-    ToolTip = "Interface Principal do Core CAD"
+def aplicar_customizacao_core_cad():
+    # 1. Altera o título da janela principal
+    main_win = Gui.getMainWindow()
+    if main_win:
+        main_win.setWindowTitle("Core CAD")
 
-    def Initialize(self):
-        pass
+    # 2. Esconde bancadas nativas indesejadas do menu suspenso
+    bancadas_ocultas = ["StartWorkbench", "TestWorkbench", "WebWorkbench", "NoneWorkbench"]
+    for wb in bancadas_ocultas:
+        try:
+            Gui.removeWorkbench(wb)
+        except Exception:
+            pass
 
-    def Activated(self):
-        mw = FreeCADGui.getMainWindow()
-        if mw:
-            mw.setWindowTitle("Core CAD - Sistema CAD Mecânico")
-
-    def Deactivated(self):
-        pass
-
-FreeCADGui.addWorkbench(CoreCADWorkbench())
-
-def aplicar_branding():
-    mw = FreeCADGui.getMainWindow()
-    if mw:
-        mw.setWindowTitle("Core CAD - Sistema CAD Mecânico")
-
-# Importação rápida do Qt
-try:
-    from PySide2 import QtCore
-    QtCore.QTimer.singleShot(0, aplicar_branding)
-except Exception:
-    try:
-        from PySide6 import QtCore
-        QtCore.QTimer.singleShot(0, aplicar_branding)
-    except Exception:
-        pass
+# Executa a customização assim que o Qt/GUI estiver 100% carregado
+QtCore.QTimer.singleShot(300, aplicar_customizacao_core_cad)

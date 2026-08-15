@@ -10,61 +10,47 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: 1. Baixar o Código do Repositório
+    - name: 1. Baixar Código Fonte
       uses: actions/checkout@v4
 
-    - name: 2. Baixar o Motor 3D do CAD (Última Versão Estável)
+    - name: 2. Baixar Última Versão do Motor CAD
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Baixando a última versão do motor CAD..."
+        echo "Baixando o motor 3D oficial..."
         gh release download --repo FreeCAD/FreeCAD --pattern "*Win*.7z"
         7z x *.7z -obuild/CoreCAD > /dev/null
 
-    - name: 3. Aplicar Black-Branding e Limpar Rastros
+    - name: 3. Aplicar Branding e Renomear Binários
       shell: bash
       run: |
-        echo "Renomeando os arquivos executáveis principais..."
+        echo "Renomeando o executável principal..."
         mv build/CoreCAD/bin/FreeCAD.exe build/CoreCAD/bin/CoreCAD.exe 2>/dev/null || true
         mv build/CoreCAD/bin/FreeCADCmd.exe build/CoreCAD/bin/CoreCADCmd.exe 2>/dev/null || true
 
-        echo "Apagando a bancada Start (que mostra notícias e a logo grande do FreeCAD)..."
+        echo "Removendo a tela inicial nativa (Start module)..."
         rm -rf build/CoreCAD/Mod/Start
 
-        echo "Gerando uma imagem PNG 100% preta via código para substituir logos..."
-        # Isso cria uma imagem preta sem precisar baixar nada da internet
+        echo "Gerando imagens pretas para substituição de logos..."
         echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC" | base64 -d > black.png
         
-        echo "Substituindo telas de carregamento (Splash)..."
+        # Substitui ícones e splash screens mantendo a estrutura limpa
         cp black.png build/CoreCAD/data/Gui/Images/splash_background.png 2>/dev/null || true
         cp black.png build/CoreCAD/data/Gui/Images/freecad-splash.png 2>/dev/null || true
-        
-        echo "Substituindo ícones internos do sistema..."
-        cp black.png build/CoreCAD/data/Gui/Images/freecad.svg 2>/dev/null || true
         cp black.png build/CoreCAD/data/Gui/Images/freecad.png 2>/dev/null || true
-        cp black.png build/CoreCAD/data/Gui/Images/freecad-icon-64.png 2>/dev/null || true
 
-    - name: 4. Injetar Arquivos do Core CAD
+    - name: 4. Injetar Módulo Core CAD (Estrutura Isolada)
       shell: bash
       run: |
-        echo "Organizando pastas do projeto..."
+        echo "Copiando o módulo CoreCAD de forma isolada..."
         mkdir -p build/CoreCAD/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
           cp -r Mod/CoreCAD/* build/CoreCAD/Mod/CoreCAD/
         fi
 
-        mkdir -p build/CoreCAD/config
-        if [ -d "config" ]; then
-          cp -r config/* build/CoreCAD/config/ 2>/dev/null || true
-        fi
-
-        if [ -f "Customizar_UI.bat" ]; then
-          cp Customizar_UI.bat build/CoreCAD/Iniciar_CoreCAD.bat
-        fi
-
     - name: 5. Empacotar Distribuição
       uses: actions/upload-artifact@v4
       with:
-        name: CoreCAD-Windows-Latest-Branded
+        name: CoreCAD-Windows-Nativo-v1.0
         path: build/CoreCAD
