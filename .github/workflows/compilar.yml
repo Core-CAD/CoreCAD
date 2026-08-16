@@ -31,20 +31,24 @@ jobs:
       with:
         manifest-path: src-freecad/pixi.toml
 
-    - name: 5. Configure CMake build environment
+    - name: 5. Configure CMake build environment with MSVC x64
       working-directory: src-freecad
       shell: cmd
       run: |
+        echo "Loading Visual Studio 2022 Developer Environment..."
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
         echo "Configuring build directory with CMake..."
         pixi run configure
 
-    - name: 6. Compile C++ source code
+    - name: 6. Compile C++ source code with MSVC x64
       working-directory: src-freecad
       shell: cmd
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: '2'
       run: |
-        echo "Starting C++ compilation..."
+        echo "Loading Visual Studio 2022 Developer Environment..."
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        echo "Starting C++ compilation with Ninja and MSVC..."
         pixi run build
 
     - name: 7. Inject custom modules and rename output binary
