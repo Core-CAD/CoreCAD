@@ -5,6 +5,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+env:
+  VS2022INSTALLDIR: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise'
+
 jobs:
   build-cpp-windows:
     runs-on: windows-latest
@@ -13,26 +16,10 @@ jobs:
     - name: 1. Checkout repository code
       uses: actions/checkout@v4
 
-    - name: 2. Export MSVC x64 environment directly to GITHUB_PATH and GITHUB_ENV
-      shell: powershell
-      run: |
-        Write-Host "Extracting MSVC compiler variables to global action context..."
-        $vcvars = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        cmd.exe /c "call `"$vcvars`" && set" | ForEach-Object {
-          if ($_ -match "^(PATH|INCLUDE|LIB|LIBPATH)=(.*)$") {
-            $varName = $matches[1]
-            $varValue = $matches[2]
-            if ($varName -eq "PATH") {
-              $varValue.Split(";") | ForEach-Object {
-                if ($_ -and (Test-Path $_)) {
-                  Add-Content -Path $env:GITHUB_PATH -Value $_
-                }
-              }
-            } else {
-              Add-Content -Path $env:GITHUB_ENV -Value "$varName=$varValue"
-            }
-          }
-        }
+    - name: 2. Setup MSVC x64 C++ compiler environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
     - name: 3. Free up disk space on Windows runner
       shell: powershell
@@ -44,7 +31,7 @@ jobs:
     - name: 4. Clone official C++ source code
       shell: bash
       run: |
-        echo "Cloning source code repository..."
+        echo "Cloning official source code repository..."
         git clone --depth 1 https://github.com/FreeCAD/FreeCAD.git src-freecad
 
     - name: 5. Setup Pixi environment
