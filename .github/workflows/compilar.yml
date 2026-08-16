@@ -13,45 +13,62 @@ jobs:
     - name: 1. Checkout repository code
       uses: actions/checkout@v4
 
-    - name: 2. Free up disk space on Windows runner
+    - name: 2. Export MSVC x64 environment directly to GITHUB_PATH and GITHUB_ENV
+      shell: powershell
+      run: |
+        Write-Host "Extracting MSVC compiler variables to global action context..."
+        $vcvars = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cmd.exe /c "call `"$vcvars`" && set" | ForEach-Object {
+          if ($_ -match "^(PATH|INCLUDE|LIB|LIBPATH)=(.*)$") {
+            $varName = $matches[1]
+            $varValue = $matches[2]
+            if ($varName -eq "PATH") {
+              $varValue.Split(";") | ForEach-Object {
+                if ($_ -and (Test-Path $_)) {
+                  Add-Content -Path $env:GITHUB_PATH -Value $_
+                }
+              }
+            } else {
+              Add-Content -Path $env:GITHUB_ENV -Value "$varName=$varValue"
+            }
+          }
+        }
+
+    - name: 3. Free up disk space on Windows runner
       shell: powershell
       run: |
         Write-Host "Cleaning up runner disk space..."
         Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "C:\Android" -Recurse -Force -ErrorAction SilentlyContinue
 
-    - name: 3. Clone official C++ source code
+    - name: 4. Clone official C++ source code
       shell: bash
       run: |
         echo "Cloning source code repository..."
         git clone --depth 1 https://github.com/FreeCAD/FreeCAD.git src-freecad
 
-    - name: 4. Setup Pixi environment
+    - name: 5. Setup Pixi environment
       uses: prefix-dev/setup-pixi@v0
       with:
         manifest-path: src-freecad/pixi.toml
 
-    - name: 5. Configure CMake build environment with MSVC x64
+    - name: 6. Configure CMake build environment
       working-directory: src-freecad
-      shell: cmd
+      shell: bash
       run: |
-        echo "Loading Visual Studio 2022 Developer Environment..."
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
         echo "Configuring build directory with CMake..."
         pixi run configure
 
-    - name: 6. Compile C++ source code with MSVC x64
+    - name: 7. Compile C++ source code
       working-directory: src-freecad
-      shell: cmd
+      shell: bash
       env:
         CMAKE_BUILD_PARALLEL_LEVEL: '2'
       run: |
-        echo "Loading Visual Studio 2022 Developer Environment..."
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        echo "Starting C++ compilation with Ninja and MSVC..."
+        echo "Starting C++ compilation with MSVC and Ninja..."
         pixi run build
 
-    - name: 7. Inject custom modules and rename output binary
+    - name: 8. Inject custom modules and rename output binary
       shell: bash
       run: |
         echo "Renaming compiled executable..."
@@ -63,7 +80,7 @@ jobs:
           cp -r Mod/CoreCAD/* src-freecad/build/bin/Mod/CoreCAD/
         fi
 
-    - name: 8. Upload native build artifacts
+    - name: 9. Upload native build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: CoreCAD-Windows-Native-Build
