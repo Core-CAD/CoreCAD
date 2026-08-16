@@ -1,74 +1,48 @@
-name: Compile Native Core CAD (C++)
+name: Package Modular Core CAD
 
 on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
-env:
-  VS2022INSTALLDIR: 'C:\Program Files\Microsoft Visual Studio\2022\Enterprise'
-
 jobs:
-  build-cpp-windows:
+  package-windows:
     runs-on: windows-latest
 
     steps:
-    - name: 1. Checkout repository code
+    - name: 1. Checkout repository
       uses: actions/checkout@v4
 
-    - name: 2. Setup MSVC x64 C++ compiler environment
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        arch: x64
-
-    - name: 3. Free up disk space on Windows runner
-      shell: powershell
-      run: |
-        Write-Host "Cleaning up runner disk space..."
-        Remove-Item -Path "C:\Program Files\dotnet" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "C:\Android" -Recurse -Force -ErrorAction SilentlyContinue
-
-    - name: 4. Clone official C++ source code
-      shell: bash
-      run: |
-        echo "Cloning official source code repository..."
-        git clone --depth 1 https://github.com/FreeCAD/FreeCAD.git src-freecad
-
-    - name: 5. Setup Pixi environment
-      uses: prefix-dev/setup-pixi@v0
-      with:
-        manifest-path: src-freecad/pixi.toml
-
-    - name: 6. Configure CMake build environment
-      working-directory: src-freecad
-      shell: bash
-      run: |
-        echo "Configuring build directory with CMake..."
-        pixi run configure
-
-    - name: 7. Compile C++ source code
-      working-directory: src-freecad
+    - name: 2. Download latest stable CAD engine
       shell: bash
       env:
-        CMAKE_BUILD_PARALLEL_LEVEL: '2'
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Starting C++ compilation with MSVC and Ninja..."
-        pixi run build
+        echo "Downloading official stable release package..."
+        gh release download --repo FreeCAD/FreeCAD --pattern "*Win*.7z"
+        7z x *.7z -obuild/CoreCAD > /dev/null
 
-    - name: 8. Inject custom modules and rename output binary
+    - name: 3. Clean up native branding and start page
       shell: bash
       run: |
-        echo "Renaming compiled executable..."
-        mv src-freecad/build/bin/FreeCAD.exe src-freecad/build/bin/CoreCAD.exe 2>/dev/null || true
-        
-        echo "Copying repository modules to output directory..."
-        mkdir -p src-freecad/build/bin/Mod/CoreCAD
+        echo "Renaming main executables..."
+        mv build/CoreCAD/bin/FreeCAD.exe build/CoreCAD/bin/CoreCAD.exe 2>/dev/null || true
+        mv build/CoreCAD/bin/FreeCADCmd.exe build/CoreCAD/bin/CoreCADCmd.exe 2>/dev/null || true
+
+        echo "Removing default Start workbench (prevents original splash and news screen)..."
+        rm -rf build/CoreCAD/Mod/Start
+
+    - name: 4. Inject isolated CoreCAD module
+      shell: bash
+      run: |
+        echo "Injecting isolated module folder..."
+        mkdir -p build/CoreCAD/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
-          cp -r Mod/CoreCAD/* src-freecad/build/bin/Mod/CoreCAD/
+          cp -r Mod/CoreCAD/* build/CoreCAD/Mod/CoreCAD/
         fi
 
-    - name: 9. Upload native build artifacts
+    - name: 5. Upload clean application artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CoreCAD-Windows-Native-Build
-        path: src-freecad/build/bin
+        name: CoreCAD-Windows-Modular
+        path: build/CoreCAD
