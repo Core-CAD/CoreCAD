@@ -13,54 +13,59 @@ jobs:
     - name: 1. Checkout repository
       uses: actions/checkout@v4
 
-    - name: 2. Download latest stable CAD engine
+    - name: 2. Download stable CAD engine into isolated app folder
       shell: bash
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Downloading official stable release package..."
+        echo "Downloading official release..."
         gh release download --repo FreeCAD/FreeCAD --pattern "*Win*.7z"
-        7z x *.7z -obuild/CoreCAD > /dev/null
+        mkdir -p build/CoreCAD/app
+        7z x *.7z -obuild/CoreCAD/app > /dev/null
 
-    - name: 3. Overwrite visual resources with black image
+    - name: 3. Remove start workbench
       shell: bash
       run: |
-        echo "Generating 1x1 black image asset..."
-        echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4//8/AAX+Av7czFnnAAAAAElFTkSuQmCC" | base64 -d > black.png
+        echo "Removing native start workbench..."
+        rm -rf build/CoreCAD/app/Mod/Start
 
-        echo "Overwriting splash screens, logos, and icons..."
-        find build/CoreCAD/data/ -type f \( -name "*.png" -o -name "*.svg" \) -exec cp black.png {} + 2>/dev/null || true
-        find build/CoreCAD/bin/ -type f \( -name "*.png" -o -name "*.svg" \) -exec cp black.png {} + 2>/dev/null || true
-
-    - name: 4. Rename executable and remove start module
+    - name: 4. Inject custom CoreCAD module
       shell: bash
       run: |
-        echo "Renaming executables..."
-        mv build/CoreCAD/bin/FreeCAD.exe build/CoreCAD/bin/CoreCAD.exe 2>/dev/null || true
-        mv build/CoreCAD/bin/FreeCADCmd.exe build/CoreCAD/bin/CoreCADCmd.exe 2>/dev/null || true
-
-        echo "Removing default start workbench..."
-        rm -rf build/CoreCAD/Mod/Start
-
-    - name: 5. Inject isolated CoreCAD module
-      shell: bash
-      run: |
-        echo "Injecting custom module..."
-        mkdir -p build/CoreCAD/Mod/CoreCAD
+        echo "Injecting isolated module directory..."
+        mkdir -p build/CoreCAD/app/Mod/CoreCAD
         if [ -d "Mod/CoreCAD" ]; then
-          cp -r Mod/CoreCAD/* build/CoreCAD/Mod/CoreCAD/
+          cp -r Mod/CoreCAD/* build/CoreCAD/app/Mod/CoreCAD/
         fi
 
-    - name: 6. Set hidden attribute for Mod directory
-      shell: powershell
+    - name: 5. Compile C++ native GUI launcher
+      shell: bash
       run: |
-        Write-Host "Hiding Mod directory in Windows build..."
-        if (Test-Path "build\CoreCAD\Mod") {
-            Set-ItemProperty -Path "build\CoreCAD\Mod" -Name Attributes -Value "Hidden"
-        }
+        echo "Compiling silent CoreCAD launcher..."
+        cat << 'EOF' > launcher.cpp
+        #include <windows.h>
+        int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+            char baseDir[MAX_PATH];
+            GetModuleFileNameA(NULL, baseDir, MAX_PATH);
+            char* lastSlash = strrchr(baseDir, '\\');
+            if (lastSlash) *lastSlash = '\0';
 
-    - name: 7. Upload branded application artifact
+            char exePath[MAX_PATH];
+            wsprintfA(exePath, "%s\\app\\bin\\FreeCAD.exe", baseDir);
+
+            char appDir[MAX_PATH];
+            wsprintfA(appDir, "%s\\app", baseDir);
+
+            STARTUPINFOA si = { sizeof(si) };
+            PROCESS_INFORMATION pi;
+            CreateProcessA(exePath, "app\\bin\\FreeCAD.exe --nosplash", NULL, NULL, FALSE, 0, NULL, appDir, &si, &pi);
+            return 0;
+        }
+        EOF
+        g++ -O2 launcher.cpp -o build/CoreCAD/CoreCAD.exe -mwindows
+
+    - name: 6. Upload clean application artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CoreCAD-Windows-Modular
+        name: CoreCAD-Windows-Clean
         path: build/CoreCAD
